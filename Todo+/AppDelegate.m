@@ -6,7 +6,9 @@
 //  Copyright (c) 2013 Grace. All rights reserved.
 //
 
+#import "cocos2d.h"
 #import "AppDelegate.h"
+#import "LineDrawer.h"
 
 @implementation AppDelegate
 
