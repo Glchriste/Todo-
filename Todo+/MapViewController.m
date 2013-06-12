@@ -10,10 +10,14 @@
 #import "ZSPinAnnotation.h"
 #import "Annotation.h"
 #import "LineDrawer.h"
+#import "MapSingleton.h"
 
 #define RGB(r, g, b) [UIColor colorWithRed:r/255.0 green:g/255.0 blue:b/255.0 alpha:1]
+#define EARTH_RADIUS 6371
 
-@interface MapViewController ()
+@interface MapViewController () {
+    
+}
 
 @end
 
@@ -23,6 +27,7 @@
 @synthesize director;
 @synthesize navController;
 @synthesize window;
+@synthesize annotationArray;
 
 #pragma mark - View lifecycle
 
@@ -51,13 +56,42 @@
         mapView.scrollEnabled = YES;
         mapView.userInteractionEnabled = YES;
         [navController.view removeFromSuperview];
+        [self setMarker];
     }
+}
+
+- (void) setMarker {
+    CGPoint point = [[MapSingleton mapSingleton] getMarkerPoint];
+    NSLog(@"%f,%f", point.x, point.y);
+    
+    if(point.x >= 0 && point.y >= 0) {
+        //Place marker annotation
+        //Annotation *annotation = nil;
+        Annotation *annotation = [[Annotation alloc] init];
+        //CGPoint coordinates = [self convertScreenToLatLong:point];
+        //NSLog(@"%f,%f", coordinates.x, coordinates.y);
+        annotation.coordinate = [self convertScreenToLatLong:point];
+        annotation.color = RGB(255, 0, 0);
+        annotation.title = @"New Annotation";
+        
+        // Add to map
+        [self.mapView addAnnotation:annotation];
+        //[mapView setCenterCoordinate:annotation.coordinate animated:YES];
+    }
+}
+
+-(CLLocationCoordinate2D)convertScreenToLatLong:(CGPoint)point {
+    CGPoint tapPoint = point; // the tap point on the MKMapView on the device
+    CLLocationCoordinate2D coordinates = [mapView convertPoint:tapPoint toCoordinateFromView:mapView]; // _customMapView in an MKMapView instance
+    NSLog(@"Tap at : %f, %f", coordinates.latitude, coordinates.longitude);
+    return coordinates;
 }
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
+    // Array
+	annotationArray = [[NSMutableArray alloc] init];
     // Create the main window
     window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     
@@ -139,8 +173,7 @@
 
     //Map Code
 	[mapView setShowsUserLocation:YES];
-    // Array
-	NSMutableArray *annotationArray = [[NSMutableArray alloc] init];
+    
 	
 	// Create some annotations
 	Annotation *annotation = nil;
@@ -327,6 +360,8 @@
     [super viewDidUnload];
     // Release any retained subviews of the main view.
     // e.g. self.myOutlet = nil;
+    [mapView removeAnnotations:mapView.annotations];
+
     [[CCDirector sharedDirector] setDelegate:nil];
 }
 

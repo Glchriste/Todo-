@@ -26,6 +26,7 @@
 #import "cocos2d.h"
 #import "LineDrawer.h"
 #import "CCNode+SFGestureRecognizers.h"
+#import "MapSingleton.h"
 
 typedef struct _LineVertex {
   CGPoint pos;
@@ -77,6 +78,7 @@ typedef struct _LineVertex {
 {
   self = [super init];
   if (self) {
+      
     points = [NSMutableArray array];
     velocities = [NSMutableArray array];
     circlesPoints = [NSMutableArray array];
@@ -137,37 +139,46 @@ typedef struct _LineVertex {
 
 #define ADD_TRIANGLE(A, B, C, Z) vertices[index].pos = A, vertices[index++].z = Z, vertices[index].pos = B, vertices[index++].z = Z, vertices[index].pos = C, vertices[index++].z = Z
 
+//Find the center of a drawn shape
 -(void)getCenterPoint:(NSArray *)linePoints{
+    CGRect screenBounds = [[UIScreen mainScreen] bounds];
+    CGFloat screenScale = [[UIScreen mainScreen] scale];
+    CGSize screenSize = CGSizeMake(screenBounds.size.width * screenScale, screenBounds.size.height * screenScale);
+    
     CGPoint prevPoint = [(LinePoint *)[linePoints objectAtIndex:0] pos];
-    float prevValue = [(LinePoint *)[linePoints objectAtIndex:0] width];
-    float curValue;
+    //float prevValue = [(LinePoint *)[linePoints objectAtIndex:0] width];
+    //float curValue;
     
     CGPoint topLeft;
+    CGPoint topRight;
+    CGPoint bottomLeft;
     CGPoint bottomRight;
     
-    CGFloat leftMax = 320.0f;
+    CGFloat leftMax = screenBounds.size.width * screenScale;
     CGFloat rightMax = 0.0f;
-    CGFloat topMax = 568.0f;
+    CGFloat topMax = screenBounds.size.height * screenScale;
     CGFloat bottomMax = 0.0f;
+    CGPoint centerPoint;
+    centerPoint.x = 0.0f;
+    centerPoint.y = 0.0f;
     
     for (int i = 1; i < [linePoints count]; ++i) {
         LinePoint *pointValue = [linePoints objectAtIndex:i];
         CGPoint curPoint = [pointValue pos];
-        curValue = [pointValue width];
         
-        if(curPoint.x >= rightMax)
+        if(curPoint.x > rightMax)
         {
             rightMax = curPoint.x;
         }
-        if(curPoint.x <= leftMax)
+        if(curPoint.x < leftMax)
         {
             leftMax = curPoint.x;
         }
-        if(curPoint.y >= bottomMax)
+        if(curPoint.y > bottomMax)
         {
             bottomMax = curPoint.y;
         }
-        if(curPoint.y <= topMax)
+        if(curPoint.y < topMax)
         {
             topMax = curPoint.y;
         }
@@ -178,21 +189,29 @@ typedef struct _LineVertex {
         bottomRight.x = rightMax;
         bottomRight.y = bottomMax;
         
-        //The distance between the points
-        //float distance = sqrtf( powf(bottomRight.x - topLeft.x, 2) + powf(bottomRight.y - topLeft.y, 2) );
-        //NSLog(@"%f", distance);
-        
-        //The center point of the shape drawn
-        CGPoint centerPoint;
-        centerPoint.x = (topLeft.x + bottomRight.x)/2;
-        centerPoint.y = (topLeft.y + bottomRight.y)/2;
-        NSLog(@"%f,%f", centerPoint.x, centerPoint.y);
-        
         //! equal points, skip them
         if (ccpFuzzyEqual(curPoint, prevPoint, 0.0001f)) {
             continue;
         }
     }
+    float distance = sqrtf((topLeft.x-bottomRight.x)*(topLeft.x-bottomRight.x) + (topLeft.y-bottomRight.y)*(topLeft.y-bottomRight.y));
+    topRight.x = topLeft.x + distance;
+    topRight.y = topLeft.y;
+    bottomLeft.x = bottomRight.x - distance;
+    bottomLeft.y = bottomRight.y;
+    
+    CGRect rect = CGRectMake(bottomLeft.x,bottomLeft.y,distance,distance);
+    
+    NSLog(@"Distance: %f", distance);
+    centerPoint.x = (topLeft.x+bottomRight.x)/2.0f;
+    centerPoint.y = (topLeft.y+bottomRight.y)/2.0f;
+    NSLog(@"Center Point: %f,%f", centerPoint.x, centerPoint.y);
+    NSLog(@"Rect: %f, %f; %f, %f; %f, %f; %f, %f;", topLeft.x, topLeft.y, topRight.x, topRight.y, bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y);
+    CGPoint mypoint = CGPointMake((rect.origin.x + rect.size.width / 2), (rect.origin.y + rect.size.height / 2));
+    NSLog(@"Point: (%f, %f) ", mypoint.x, mypoint.y);
+    
+    
+    [[MapSingleton mapSingleton] setMarkerPoint:mypoint];
 
 }
 
@@ -269,8 +288,9 @@ typedef struct _LineVertex {
 
   if (index > 0) {
     connectingLine = YES;
+      
   }
-
+  
   free(vertices);
 }
 
@@ -323,12 +343,12 @@ typedef struct _LineVertex {
   glVertexAttribPointer(kCCVertexAttrib_Position, 3, GL_FLOAT, GL_FALSE, sizeof(LineVertex), &vertices[0].pos);
   glVertexAttribPointer(kCCVertexAttrib_Color, 4, GL_FLOAT, GL_FALSE, sizeof(LineVertex), &vertices[0].color);
   glDrawArrays(GL_TRIANGLES, 0, numberOfSegments * 9);
-
   free(vertices);
 }
 
 - (void)fillLineTriangles:(LineVertex *)vertices count:(NSUInteger)count withColor:(ccColor4F)color
 {
+  
   [shaderProgram_ use];
   [shaderProgram_ setUniformForModelViewProjectionMatrix];
 
@@ -378,6 +398,7 @@ typedef struct _LineVertex {
 
     [self fillLineEndPointAt:curPoint.pos direction:dirVector radius:curPoint.width * 0.5f andColor:color];
   }
+  
   [circlesPoints removeAllObjects];
 }
 
@@ -414,6 +435,7 @@ typedef struct _LineVertex {
     }
     //! we need to leave last 2 points for next draw
     [points removeObjectsInRange:NSMakeRange(0, [points count] - 2)];
+      [self getCenterPoint:smoothedPoints];
     return smoothedPoints;
   } else {
     return nil;
@@ -467,11 +489,12 @@ typedef struct _LineVertex {
   const CGPoint point = [[CCDirector sharedDirector] convertToGL:[panGestureRecognizer locationInView:panGestureRecognizer.view]];
 
   if (panGestureRecognizer.state == UIGestureRecognizerStateBegan) {
+
     [points removeAllObjects];
     [velocities removeAllObjects];
     
     //Clear for one circle drawing at a time
-    //[self clear];
+    [self clear];
     
     float size = [self extractSize:panGestureRecognizer];
 
@@ -498,10 +521,11 @@ typedef struct _LineVertex {
   if (panGestureRecognizer.state == UIGestureRecognizerStateEnded) {
     float size = [self extractSize:panGestureRecognizer];
     [self endLineAt:point withSize:size];
-      NSMutableArray *smoothedPoints = [self calculateSmoothLinePoints];
-      if (smoothedPoints) {
-          [self getCenterPoint:smoothedPoints];
-      }
+      
+//      NSMutableArray *smoothedPoints = [self calculateSmoothLinePoints];
+//      if (smoothedPoints) {
+//          [self getCenterPoint:smoothedPoints];
+//      }
   }
 }
 

@@ -19,6 +19,7 @@
 
 @property (nonatomic, strong) IBOutlet MKMapView *mapView;
 @property (weak, nonatomic) IBOutlet UISearchBar *searchBar;
+@property (nonatomic, strong) NSMutableArray *annotationArray;
 - (MKMapRect)makeMapRectWithAnnotations:(NSArray *)annotations;
 
 @property (strong, nonatomic) UIWindow *window;

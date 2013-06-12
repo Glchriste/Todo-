@@ -8,6 +8,34 @@
 
 #import "MapSingleton.h"
 
+
 @implementation MapSingleton
+@synthesize markerPoint;
+
++ (MapSingleton *) mapSingleton
+{
+    static MapSingleton *mapSingleton;
+    @synchronized(self)
+    {
+        if (!mapSingleton) {
+            mapSingleton = [[MapSingleton alloc] init];
+            CGPoint initialPoint;
+            initialPoint.x = -1.0f;
+            initialPoint.y = -1.0f;
+            [mapSingleton setMarkerPoint:initialPoint];
+        }
+        
+        return mapSingleton;
+    }
+}
+
+
+-(void)setMarkerPoint:(CGPoint)point {
+    markerPoint = point;
+}
+
+-(CGPoint)getMarkerPoint {
+    return markerPoint;
+}
 
 @end
